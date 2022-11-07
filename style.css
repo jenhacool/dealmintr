@@ -70,3 +70,7 @@
   margin-right: 1rem;
   margin-left: 0;
 }
+
+.action-group .Polaris-ButtonGroup {
+  width: 140px;
+}
