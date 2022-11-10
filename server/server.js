@@ -109,12 +109,7 @@ app.prepare().then(async () => {
 
   const verifyIfActiveShopifyShop = async (ctx, next) => {
     let { shop } = ctx.query;
-    shop = "dealmintr.myshopify.com";
     const shopData = await Shop.findOne({ shop });
-
-    console.log("here 1", ACTIVE_SHOPIFY_SHOPS);
-    console.log("here 2", shopData);
-    console.log("here 3", shop);
 
     // This shop hasn't been seen yet, go through OAuth to create a session
     if (ACTIVE_SHOPIFY_SHOPS[shop] === undefined || !shopData) {
@@ -159,17 +154,9 @@ app.prepare().then(async () => {
     }
   );
 
-  const verifyAPI = async (ctx, next) => {
-    if (process.env.NODE_ENV == "development") {
-      return next;
-    }
-
-    verifyRequest({ accessMode: "offline" });
-  };
-
   router.post("/api/settings",
     bodyParser(),
-    verifyAPI,
+    verifyRequest({ accessMode: "offline" }),
     async (ctx) => {
       let { shop } = ctx.request.body;
 
@@ -195,7 +182,7 @@ app.prepare().then(async () => {
 
   router.post("/api/settings/save",
     bodyParser(),
-    verifyAPI,
+    verifyRequest({ accessMode: "offline" }),
     async (ctx) => {
       let { shop, settings } = ctx.request.body;
 
@@ -274,7 +261,6 @@ app.prepare().then(async () => {
   );
 
   router.post("/api/get_settings", cors(), bodyParser(), async (ctx) => {
-    console.log("here");
     let { shop } = ctx.request.body;
 
     try {

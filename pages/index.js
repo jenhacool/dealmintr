@@ -158,6 +158,7 @@ const Index = () => {
     product,
     id,
   }) => {
+    setProduct(product);
     setName(name);
     setSymbol(symbol);
     setContractAddress(contractAddress);
@@ -320,8 +321,9 @@ const Index = () => {
                     label="Timestamp"
                   />
                   <Button onClick={() => setOpenPicker(true)}>
-                    Select Product
+                    {product ? 'Change Product' : 'Select Product'}
                   </Button>
+                  {product && <p><strong>Product: </strong>{product}</p>}
                 </FormLayout>
               </Modal.Section>
             </Modal>
