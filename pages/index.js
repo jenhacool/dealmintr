@@ -164,7 +164,7 @@ const Index = () => {
     setContractAddress(contractAddress);
     setTimestamp(timestamp);
     setSettingId(id);
-    setProductsSelected([{id: "gid://shopify/Product/" + product}]);
+    setProductsSelected([{id: "gid://shopify/ProductVariant/" + product}]);
     setOpenModal(true);
   };
 
@@ -356,9 +356,9 @@ const Index = () => {
         </Layout>
         {openPicker && (
           <ResourcePicker
-            resourceType="Product"
+            resourceType="ProductVariant"
             onSelection={({ selection }) => {
-              setProduct(selection[0].id.replace("gid://shopify/Product/", ""));
+              setProduct(selection[0].id.replace("gid://shopify/ProductVariant/", ""));
               setOpenPicker(false);
             }}
             onCancel={() => setOpenPicker(false)}

@@ -1,32 +1,14 @@
-{% if product %}
-  {% if cart.item_count > 0 %}
-    {% assign in_cart = 0 %}
-    {% for item in cart.items %}
-      {% if item.product.id == product.id %}
-      {% assign in_cart = in_cart | plus: 1 %}
-      {% endif %}
-    {% endfor %}
-  {% endif %}
-  {{ cart | json }}
-  {{ in_cart | json }}
-  {% unless in_cart %}
-    <script defer src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.4-rc.1/web3.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
-    <script defer src="{{ 'dealmintr.js' | asset_url }}"></script>
-    <style>
-      .koopon-button {
-        margin-top: 1rem;
-      }
-    </style>
-    <script>
-      window.DealMintr = {
-        product: {{ product | json }},
-      }
-    </script>
-  {% endunless %}
-{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.4-rc.1/web3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+<script src="{{ 'dealmintr.js' | asset_url }}"></script>
+<script>
+  window.DealMintr = {
+    product: {{ product | json }},
+    appSettings: {},
+  }
+</script>
 
 {% schema %}
   {

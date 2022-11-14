@@ -779,6 +779,13 @@ var abi = [
   },
 ];
 
+var showError = function () {
+  $(".koopon-button").after(
+    '<div class="dealmintr-error" style="text-align: center; margin-top: 10px; color: rgb(200 30 30); background: rgb(253 232 232); border-radius: 4px; display: block; padding: 10px; width: 100%"><strong>Failed. Please contract the shop owner</strong></div>'
+  );
+  $(".koopon-button").hide();
+}
+
 var connect = async function () {
   if (window.ethereum) {
     await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -839,67 +846,96 @@ var getTokenMetas = async function (collectionAddresses, userWalletAddress) {
 };
 
 var checkNft = async function () {
-  console.log(DealMintr);
-  let { productSetting, nftDatas, product } = window.DealMintr;
+  let { appSettings, nftDatas } = window.DealMintr;
   if (!nftDatas.length) {
+    showError();
     return;
   }
-  let nfts = nftDatas.filter((data) => {
-    return data.key == productSetting.contractAddress;
-  });
-  console.log(nfts);
-  if (!nfts.length) {
-    return;
-  }
-  nfts = nfts[0].value;
-  console.log(nfts);
-  let find = _.find(nfts, (nft) => {
-    if (!nft.hasOwnProperty("attributes")) {
-      return;
-    }
-    let attributes = nft.attributes;
-    let timestamp = _.find(attributes, (att) => {
-      return att.trait_type == "release date";
+  let variantIds = [];
+  appSettings.forEach((setting) => {
+    let data = nftDatas.find((d) => {
+      return d.key == setting.contractAddress;
     });
-    if (!timestamp) {
+    console.log(data);
+    if (!data || !data.hasOwnProperty("value")) {
+      console.log("here 0.5")
       return;
     }
-    timestamp = timestamp.value;
-    return (nft.symbol =
-      productSetting.symbol &&
-      nft.name == productSetting.name &&
-      timestamp == productSetting.timestamp);
+    let nfts = data.value;
+    let find = nfts.find((nft) => {
+      if (!nft.hasOwnProperty("attributes")) {
+        return;
+      }
+      let attributes = nft.attributes;
+      let timestamp = _.find(attributes, (att) => {
+        return att.trait_type == "release date";
+      });
+      if (!timestamp) {
+        return;
+      }
+      timestamp = timestamp.value;
+      return (nft.symbol = setting.symbol && nft.name == setting.name && timestamp == setting.timestamp);
+    });
+    if (!find) {
+      console.log("here 1");
+      return;
+    }
+    variantIds.push({
+      id: setting.product,
+      quantity: 1,
+      properties: {
+        "_nftSymbol": setting.symbol
+      }
+    });
   });
-  if (!find) {
-    $(".koopon-button").after(
-      '<div class="dealmintr-error" style="text-align: center; margin-top: 10px; color: rgb(200 30 30); background: rgb(253 232 232); border-radius: 4px; display: block; padding: 10px; width: 100%"><strong>Failed. Please contract the shop owner</strong></div>'
-    );
-    $(".koopon-button").hide();
+  if (!variantIds.length) {
+    showError();
     return;
   }
-  let cart = await $.get("/cart.json", function (data) {
-    let inCart = data.items.filter((item) => {
-      return item.product_id == product.id;
-    }).length;
-    if (inCart) {
+  console.log("variantIds", variantIds);
+  let cart = await $.get("/cart.json", function(data) {
+    let items = [];
+    console.log("cart", data);
+    if (!data.items.length) {
+      items = variantIds;
+    } else {
+      variantIds.forEach((v) => {
+        let find = data.items.find((item) => {
+          return item.variant_id == v.id
+        });
+        if (find) {
+          console.log("here 2")
+          return;
+        }
+        items.push(v);
+      });
+    }
+    console.log("items", items);
+    if (!items.length) {
+      console.log("here 3");
+      showError();
       return;
     }
-    $("form[action='/cart/add']").submit();
+    $.post("/cart/add.js", {items}, function(data) {
+      location.reload();
+    });
   });
 };
 
 var initApp = async function (settings) {
-  let productSetting = _.find(settings, (setting) => {
-    return setting.product == window.DealMintr.product.id;
-  });
   window.DealMintr.appSettings = settings;
-  window.DealMintr.productSetting = productSetting;
-  if (!productSetting) {
+  if (!settings) {
     return;
   }
-  $("form[action='/cart/add']").append(
-    "<button class='button button--full-width button--secondary koopon-button'>Koopon</button>"
-  );
+  let button = "<button class='button btn koopon-button'>Koopon</button>";
+  let $form = $("form[action='/cart']");
+  if ($form.find("table tbody tr").length) {
+    $form.after(button);
+    $form.after("<style>.koopon-button {margin: 1rem 0;display: block;}</style>");
+  } else {
+    $form.before("<style>.koopon-button {margin: 1rem auto;display: block;}</style>")
+    $form.before(button);
+  }
   $(document).on("click", ".koopon-button", async function (e) {
     e.preventDefault();
     $(this).prop("disabled", true);
@@ -912,7 +948,7 @@ var initApp = async function (settings) {
 $(document).ready(async function () {
   $.ajax({
     type: "post",
-    url: "https://dealmintr-dev.simesy.com/api/get_settings",
+    url: "https://dealmintr.simesy.com/api/get_settings",
     data: {
       shop: Shopify.shop,
     },
