@@ -927,7 +927,7 @@ var initApp = async function (settings) {
   if (!settings) {
     return;
   }
-  let button = "<button class='button btn koopon-button'>Koopon</button>";
+  let button = "<button class='button btn koopon-button'>Add Koopon</button>";
   let $form = $("form[action='/cart']");
   if ($form.find("table tbody tr").length) {
     $form.after(button);

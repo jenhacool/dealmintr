@@ -52,9 +52,7 @@ const handle = app.getRequestHandler();
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
-  SCOPES: process.env.SCOPES
-    ? process.env.SCOPES.split(",")
-    : "read_content,write_content,read_script_tags,write_script_tags,read_products,read_themes",
+  SCOPES: process.env.SCOPES.split(","),
   HOST_NAME: process.env.HOST.replace(/https:\/\//, ""),
   API_VERSION: "2022-01",
   IS_EMBEDDED_APP: true,
@@ -95,11 +93,44 @@ app.prepare().then(async () => {
           { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
+        const response = await Shopify.Webhooks.Registry.register({
+          shop,
+          accessToken,
+          path: "/webhooks",
+          topic: "ORDERS_PAID",
+          webhookHandler: async (topic, shop, body) => {
+            onOrderPaid(shop, body);
+          },
+        });
+
+        if (!response.success) {
+          console.log(JSON.stringify(response.result, null, 4));
+          console.log(
+            `Failed to register APP_UNINSTALLED webhook: ${response.result}`
+          );
+        }
+
         // Redirect to app with shop parameter upon auth
         ctx.redirect(`/?shop=${shop}&host=${host}`);
       },
     })
   );
+
+  // Shopify.Webhooks.Registry.webhookRegistry.push({
+  //   path: "/webhooks",
+  //   topic: "APP_UNINSTALLED",
+  //   webhookHandler: async (topic, shop, body) => {
+  //     onOrderPaid(shop);
+  //   }
+  // });
+
+  const onOrderPaid = async (shop, body) => {
+    try {
+      console.log(shop, body);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   const handleRequest = async (ctx) => {
     await handle(ctx.req, ctx.res);
@@ -259,6 +290,15 @@ app.prepare().then(async () => {
       }
     }
   );
+
+  router.post("/api/on_order_paid", async (ctx) => {
+    try {
+      let body = ctx.request.body;
+      ctx.status = 200;
+    } catch (err) {
+      ctx.status = 200;
+    }
+  });
 
   router.post("/api/get_settings", cors(), bodyParser(), async (ctx) => {
     let { shop } = ctx.request.body;
