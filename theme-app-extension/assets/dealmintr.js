@@ -927,14 +927,16 @@ var initApp = async function (settings) {
   if (!settings) {
     return;
   }
-  let button = "<button class='button btn koopon-button'>Add Koopon</button>";
-  let $form = $("form[action='/cart']");
-  if ($form.find("table tbody tr").length) {
-    $form.after(button);
-    $form.after("<style>.koopon-button {margin: 1rem 0;display: block;}</style>");
-  } else {
-    $form.before("<style>.koopon-button {margin: 1rem auto;display: block;}</style>")
-    $form.before(button);
+  if (!$('.koopon-button')) {
+    let button = "<button class='button btn koopon-button'>Add Koopon</button>";
+    let $form = $("form[action='/cart']");
+    if ($form.find("table tbody tr").length) {
+      $form.after(button);
+      $form.after("<style>.koopon-button {margin: 1rem 0;display: block;}</style>");
+    } else {
+      $form.before("<style>.koopon-button {margin: 1rem auto;display: block;}</style>")
+      $form.before(button);
+    }
   }
   $(document).on("click", ".koopon-button", async function (e) {
     e.preventDefault();

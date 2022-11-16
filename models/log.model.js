@@ -1,12 +1,16 @@
 const mongoose = require("mongoose");
 
-constLoggSchema = mongoose.Schema(
+const LogSchema = mongoose.Schema(
   {
     variantId: {
       type: "String",
       required: true,
     },
     orderId: {
+      type: "String",
+      required: true
+    },
+    symbol: {
       type: "String",
       required: true
     }

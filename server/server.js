@@ -8,6 +8,7 @@ import next from "next";
 import Router from "koa-router";
 import Shop from "../models/shop.model";
 import Setting from "../models/setting.model";
+import Log from "../models/log.model";
 import {
   storeCallback,
   loadCallback,
@@ -97,9 +98,9 @@ app.prepare().then(async () => {
           shop,
           accessToken,
           path: "/webhooks",
-          topic: "ORDERS_PAID",
+          topic: "APP_UNINSTALLED",
           webhookHandler: async (topic, shop, body) => {
-            onOrderPaid(shop, body);
+            delete ACTIVE_SHOPIFY_SHOPS[shop]
           },
         });
 
@@ -291,9 +292,32 @@ app.prepare().then(async () => {
     }
   );
 
-  router.post("/api/on_order_paid", async (ctx) => {
+  router.post("/api/on_order_paid", bodyParser(), async (ctx) => {
     try {
-      let body = ctx.request.body;
+      let { id, line_items } = ctx.request.body;
+      if (!line_items) {
+        ctx.status = 200;
+        return;
+      }
+      let logs = [];
+      let symbols = [];
+      line_items.forEach(((item) => {
+        let { properties, variant_id } = item;
+        if (!properties) {
+          return;
+        }
+        let symbol = properties.find((p) => p.name == "_nftSymbol");
+        if (!symbol) {
+          return;
+        }
+        logs.push({
+          variantId: variant_id,
+          orderId: id,
+          symbol: symbol.value
+        });
+        symbols.push(symbol.value);
+      }));
+      await Log.insertMany(logs);
       ctx.status = 200;
     } catch (err) {
       ctx.status = 200;
@@ -304,12 +328,31 @@ app.prepare().then(async () => {
     let { shop } = ctx.request.body;
 
     try {
-      let setting = await Setting.findOne({shop});
+      let data = await Setting.findOne({shop});
+      if (!data) {
+        ctx.status = 200;
+        ctx.body = {
+          success: true,
+          data: {
+            settings: []
+          },
+        };
+        return;
+      }
+      let settings = data.settings;
+      settings = await Promise.all(settings.map(async (setting) => {
+        let log = await Log.findOne({symbol: setting.symbol});
+        if (!log) {
+          return setting;
+        }
+        return null;
+      }))
+      settings = settings.filter((setting) => setting != null);
       ctx.status = 200;
       ctx.body = {
         success: true,
         data: {
-          settings: setting ? setting.settings : [],
+          settings: settings
         },
       };
     } catch (error) {
