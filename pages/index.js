@@ -1,7 +1,7 @@
 import { ResourcePicker, useAppBridge } from "@shopify/app-bridge-react";
 import { getSessionToken } from "@shopify/app-bridge-utils";
 import {
-  Button, ButtonGroup, Card, FormLayout, Frame, IndexTable, Layout, Modal, Page, TextContainer, TextField, Toast, useIndexResourceState
+  Button, ButtonGroup, Card, Checkbox, FormLayout, Frame, IndexTable, Layout, Modal, Page, TextContainer, TextField, Toast, useIndexResourceState
 } from "@shopify/polaris";
 import axios from "axios";
 import { useRouter } from "next/router";
@@ -15,6 +15,8 @@ const Index = () => {
   const [plan, setPlan] = useState("");
   const [selected, setSelected] = useState(0);
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [config, setConfig] = useState({});
   const [settings, setSettings] = useState([]);
   const [settingId, setSettingId] = useState("");
   const [openModal, setOpenModal] = useState(false);
@@ -37,6 +39,11 @@ const Index = () => {
   } = useIndexResourceState([]);
 
   const shop = router.query.shop || "";
+
+  const handleToggleResale = useCallback((newChecked) => {
+    let current = config;
+    setConfig({...current, noResale: newChecked});
+  }, []);
 
   const handleChangeName = useCallback((newValue) => setName(newValue), []);
   const handleChangeSymbol = useCallback((newValue) => setSymbol(newValue), []);
@@ -123,8 +130,8 @@ const Index = () => {
       case 3:
         message = "Delete success";
         break;
-
       default:
+        message = "Success"
         break;
     }
     if (activeSuccess !== 0 && message) {
@@ -221,6 +228,7 @@ const Index = () => {
       },
     });
 
+    setConfig(response.data.data.config);
     setSettings(response.data.data.settings);
   };
 
@@ -245,6 +253,32 @@ const Index = () => {
       return false;
     }
   };
+
+  const saveConfig = async () => {
+    setLoading(true);
+    
+    let sessionToken = await getSessionToken(app);
+
+    let data = {
+      shop,
+      config
+    };
+
+    try {
+      let response = await axios.post("/api/config/save", data, {
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      });
+      setLoading(false);
+      if (response) {
+        setActiveSuccess(4);
+      }
+    } catch (error) {
+      setActiveError(true);
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     getSettings();
@@ -281,6 +315,12 @@ const Index = () => {
               >
                 {rowMarkup}
               </IndexTable>
+            </Card>
+            <Card title="Config" sectioned>
+              <FormLayout>
+                <Checkbox label="NFT Resale" checked={config.noResale} onChange={handleToggleResale}  />
+                <Button primary onClick={saveConfig} loading={loading}>Save</Button>
+              </FormLayout>
             </Card>
             <Modal
               open={openModal}

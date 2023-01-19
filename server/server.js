@@ -200,6 +200,7 @@ app.prepare().then(async () => {
         ctx.body = {
           success: true,
           data: {
+            config: setting ? setting.config : { noResale: true },
             settings: setting ? setting.settings : []
           }
         };
@@ -225,6 +226,31 @@ app.prepare().then(async () => {
           success: true,
           data: {
             settings,
+          },
+        };
+      } catch (error) {
+        console.log(error);
+        ctx.status = 400;
+        ctx.body = {
+          success: false,
+        };
+      }
+    }
+  );
+
+  router.post("/api/config/save",
+    bodyParser(),
+    verifyRequest({ accessMode: "offline" }),
+    async (ctx) => {
+      let { shop, config } = ctx.request.body;
+
+      try {
+        await Setting.findOneAndUpdate({shop}, {config}, {new: true, upsert: true});
+        ctx.status = 200;
+        ctx.body = {
+          success: true,
+          data: {
+            config,
           },
         };
       } catch (error) {
@@ -334,6 +360,7 @@ app.prepare().then(async () => {
         ctx.body = {
           success: true,
           data: {
+            config: {},
             settings: []
           },
         };
@@ -352,6 +379,7 @@ app.prepare().then(async () => {
       ctx.body = {
         success: true,
         data: {
+          config: data.config,
           settings: settings
         },
       };

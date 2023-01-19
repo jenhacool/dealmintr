@@ -6,6 +6,13 @@ const SettingSchema = mongoose.Schema(
       type: "String",
       required: true,
     },
+    config: {
+      type: "Object",
+      required: true,
+      default: {
+        noResale: true
+      }
+    },
     settings: {
       type: "Object",
       required: true,

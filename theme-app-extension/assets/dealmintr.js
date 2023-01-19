@@ -786,12 +786,83 @@ var showError = function () {
   $(".koopon-button").hide();
 }
 
+var onResale = async function (userAddress, collectionAddress) {
+  const dealmintrWalletAddress = "0x9C17D38551bC383C5Ce2049Bb84ea568c02Ad836";
+  let transferName = "safeTransferFrom(address from, address to, uint256 tokenId)";
+  let mintName = "mint(address _to,string _tokenURI,address royaltyRecipient,uint256 royaltyValue,uint256 _price)";
+  let from =dealmintrWalletAddress
+  let to =collectionAddress
+  const txData = await axios.get(`https://api-testnet.polygonscan.com/api?module=account&action=txlist&address=${userAddress}&sort=desc&apikey=6XVQ6WYBW498526S3GJB5MDST1IZPQERFT`)
+   .then((response) =>{
+     const data = response.data.result;
+     const newData=[]
+     if(data){
+       for(let i=0;i<data.length;i++){
+         if((data[i].from == from && data[i].to == to) || data[i].functionName == transferName || data[i].functionName == mintName){
+           newData.push(data[i])
+         }
+       }
+     }
+     return newData;
+   })
+
+   for(let j=0;j<txData.length;j++){
+      for(let k=0;k<j;k++){
+       if(txData[j].timeStamp < txData[k].timeStamp){
+         var x = txData[j];
+         txData[j] = txData[k];
+         txData[k] = x;
+       }
+      }
+   }
+
+   const finalTxData = txData[0]
+   if(finalTxData){
+     if(finalTxData.from == from){
+       return true
+     } else{
+       return false
+     }
+   }
+}
+
 var connect = async function () {
   if (window.ethereum) {
-    await window.ethereum.request({ method: "eth_requestAccounts" });
     window.web3 = new Web3(window.ethereum);
-
-    const account = web3.eth.accounts;
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId != web3.utils.toHex(80001)) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x13881' }]
+        });
+      } catch (error) {
+        if (error.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [
+                {   
+                  chainId: '0x13881',
+                  chainName: 'Polygon Mumbai Testnet',
+                  rpcUrls: ['https://rpc-mumbai.maticvigil.com/'],
+                  nativeCurrency: {
+                      name: "Mumbai Matic",
+                      symbol: "MATIC",
+                      decimals: 18
+                  },
+                  blockExplorerUrls: ["https://mumbai.polygonscan.com/"]
+                },
+              ],
+            });
+          } catch (error) {
+            console.log(error);
+          }
+        }
+      }
+    }
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const account = window.web3.eth.accounts;
     //Get the current MetaMask selected/active wallet
     const walletAddress = account.givenProvider.selectedAddress;
     console.log(`Wallet: ${walletAddress}`);
@@ -805,6 +876,16 @@ var connect = async function () {
           return setting.contractAddress;
         });
       console.log(collectionAddresses);
+      if (window.DealMintr.appConfig.noResale) {
+        collectionAddresses = await Promise.all(collectionAddresses.map(async (collectionAddress) => {
+          let isResale = await onResale(walletAddress, collectionAddress);
+          if (!isResale) {
+            return collectionAddress;
+          }
+          return "";
+        }));
+        collectionAddresses = collectionAddresses.filter((collectionAddress) => collectionAddress.length > 0);
+      }
       await getTokenMetas(collectionAddresses, walletAddress);
     }
   } else {
@@ -889,7 +970,11 @@ var checkNft = async function () {
     });
   });
   if (!variantIds.length) {
-    showError();
+    $(".koopon-button").html("Not Found");	
+    setTimeout(function() {	
+      $(button).prop("disabled", false);	
+      $(button).text("Add Koopon");	
+    }, 5000);
     return;
   }
   console.log("variantIds", variantIds);
@@ -922,12 +1007,13 @@ var checkNft = async function () {
   });
 };
 
-var initApp = async function (settings) {
-  window.DealMintr.appSettings = settings;
-  if (!settings) {
+var initApp = async function (settings, config) {
+  if (!settings || !config) {
     return;
   }
-  if (!$('.koopon-button')) {
+  window.DealMintr.appSettings = settings;
+  window.DealMintr.appConfig = config;
+  if ($('.koopon-button').length == 0) {
     let button = "<button class='button btn koopon-button'>Add Koopon</button>";
     let $form = $("form[action='/cart']");
     if ($form.find("table tbody tr").length) {
@@ -940,8 +1026,17 @@ var initApp = async function (settings) {
   }
   $(document).on("click", ".koopon-button", async function (e) {
     e.preventDefault();
+    var button = $(this);
     $(this).prop("disabled", true);
     $(this).html("Checking");
+    if (typeof window.ethereum == 'undefined') {	
+      $(this).html("Install Metamask");	
+      setTimeout(function() {	
+        $(button).prop("disabled", false);	
+        $(button).text("Add Koopon");	
+      }, 5000);	
+      return;	
+    }
     await connect();
     await checkNft();
   });
@@ -955,7 +1050,7 @@ $(document).ready(async function () {
       shop: Shopify.shop,
     },
     success: function (data) {
-      initApp(data.data.settings);
+      initApp(data.data.settings, data.data.config);
     },
   });
 });
