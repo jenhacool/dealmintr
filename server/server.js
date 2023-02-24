@@ -17,6 +17,7 @@ import {
 
 const _ = require("lodash");
 const mongoose = require("mongoose");
+
 const bodyParser = require("koa-bodyparser");
 const cors = require("@koa/cors");
 const fs = require('fs');
@@ -49,13 +50,14 @@ const app = next({
   dev,
 });
 const handle = app.getRequestHandler();
+const morgan = require("koa-morgan");
 
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
   SCOPES: process.env.SCOPES.split(","),
   HOST_NAME: process.env.HOST.replace(/https:\/\//, ""),
-  API_VERSION: "2022-01",
+  API_VERSION: "2023-01",
   IS_EMBEDDED_APP: true,
   SESSION_STORAGE: new Shopify.Session.CustomSessionStorage(
     storeCallback,
@@ -68,18 +70,16 @@ Shopify.Context.initialize({
 // persist this object in your app.
 const ACTIVE_SHOPIFY_SHOPS = {};
 
-if (process.env.NODE_ENV == "development") {
-  ACTIVE_SHOPIFY_SHOPS["dealmintr.myshopify.com"] = "access_token";
-}
-
 app.prepare().then(async () => {
   const server = new Koa();
   const router = new Router();
+  server.use(morgan("dev"));
   server.keys = [Shopify.Context.API_SECRET_KEY];
   server.use(
     createShopifyAuth({
       accessMode: "offline",
       async afterAuth(ctx) {
+        console.log("here");
         // Access token and shop available in ctx.state.shopify
         const { shop, accessToken, scope } = ctx.state.shopify;
         const host = ctx.query.host;
@@ -116,7 +116,18 @@ app.prepare().then(async () => {
       },
     })
   );
-
+  server.use((ctx, next) => {
+    const shop = ctx.query.shop;
+    if (Shopify.Context.IS_EMBEDDED_APP && shop) {
+      ctx.set(
+        "Content-Security-Policy",
+        `frame-ancestors https://${shop} https://admin.shopify.com;`
+      );
+    } else {
+      ctx.set("Content-Security-Policy", `frame-ancestors 'none';`);
+    }
+    return next();
+  });
   // Shopify.Webhooks.Registry.webhookRegistry.push({
   //   path: "/webhooks",
   //   topic: "APP_UNINSTALLED",
@@ -143,8 +154,10 @@ app.prepare().then(async () => {
     let { shop } = ctx.query;
     const shopData = await Shop.findOne({ shop });
 
+    console.log(ACTIVE_SHOPIFY_SHOPS);
+
     // This shop hasn't been seen yet, go through OAuth to create a session
-    if (ACTIVE_SHOPIFY_SHOPS[shop] === undefined || !shopData) {
+    if (!shopData) {
       ctx.redirect(`/auth?shop=${shop}`);
       return;
     }
@@ -201,7 +214,8 @@ app.prepare().then(async () => {
           success: true,
           data: {
             config: setting ? setting.config : { noResale: true },
-            settings: setting ? setting.settings : []
+            settings: setting ? setting.settings : [],
+            tosAccepted: setting ? setting.tosAccepted : false
           }
         };
       } catch (error) {
@@ -252,6 +266,28 @@ app.prepare().then(async () => {
           data: {
             config,
           },
+        };
+      } catch (error) {
+        console.log(error);
+        ctx.status = 400;
+        ctx.body = {
+          success: false,
+        };
+      }
+    }
+  );
+
+  router.post("/api/accept_tos",
+    bodyParser(),
+    verifyRequest({ accessMode: "offline" }),
+    async (ctx) => {
+      let { shop } = ctx.request.body;
+
+      try {
+        await Setting.findOneAndUpdate({shop}, {tosAccepted: true}, {new: true, upsert: true});
+        ctx.status = 200;
+        ctx.body = {
+          success: true,
         };
       } catch (error) {
         console.log(error);

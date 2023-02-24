@@ -18,6 +18,10 @@ const SettingSchema = mongoose.Schema(
       required: true,
       default: []
     },
+    tosAccepted: {
+      type: "Boolean",
+      default: false
+    }
   },
   { timestamps: true }
 );

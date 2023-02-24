@@ -779,9 +779,9 @@ var abi = [
   },
 ];
 
-var showError = function () {
+var showError = function (message = "Failed. Please contract the shop owner") {
   $(".koopon-button").after(
-    '<div class="dealmintr-error" style="text-align: center; margin-top: 10px; color: rgb(200 30 30); background: rgb(253 232 232); border-radius: 4px; display: block; padding: 10px; width: 100%"><strong>Failed. Please contract the shop owner</strong></div>'
+    `<div class="dealmintr-error" style="text-align: center; margin-top: 10px; color: rgb(200 30 30); background: rgb(253 232 232); border-radius: 4px; display: block; padding: 10px; width: 100%"><strong>${message}</strong></div>`
   );
   $(".koopon-button").hide();
 }
@@ -875,7 +875,7 @@ var connect = async function () {
         .map((setting) => {
           return setting.contractAddress;
         });
-      console.log(collectionAddresses);
+      console.log("collectionAddresses", collectionAddresses);
       if (window.DealMintr.appConfig.noResale) {
         collectionAddresses = await Promise.all(collectionAddresses.map(async (collectionAddress) => {
           let isResale = await onResale(walletAddress, collectionAddress);
@@ -886,6 +886,7 @@ var connect = async function () {
         }));
         collectionAddresses = collectionAddresses.filter((collectionAddress) => collectionAddress.length > 0);
       }
+      console.log("collectionAddresses after", collectionAddresses);
       await getTokenMetas(collectionAddresses, walletAddress);
     }
   } else {
@@ -903,6 +904,8 @@ var getTokenMetas = async function (collectionAddresses, userWalletAddress) {
       .balanceOf(userWalletAddress)
       .call();
 
+    console.log(tokenBalance);
+
     let tokenData = [];
 
     for (let j = 0; j < tokenBalance; j++) {
@@ -912,6 +915,7 @@ var getTokenMetas = async function (collectionAddresses, userWalletAddress) {
       let tokenMetadataURI = await nftContract.methods.tokenURI(tokenId).call();
       console.log(tokenMetadataURI);
       let response = await axios.get(tokenMetadataURI);
+      console.log(response.data);
       tokenData.push(response.data);
     }
 
@@ -929,7 +933,7 @@ var getTokenMetas = async function (collectionAddresses, userWalletAddress) {
 var checkNft = async function () {
   let { appSettings, nftDatas } = window.DealMintr;
   if (!nftDatas.length) {
-    showError();
+    showError("You don't own any NFTs or already ordered");
     return;
   }
   let variantIds = [];
@@ -955,7 +959,8 @@ var checkNft = async function () {
         return;
       }
       timestamp = timestamp.value;
-      return (nft.symbol = setting.symbol && nft.name == setting.name && timestamp == setting.timestamp);
+      console.log(nft.symbol == setting.symbol, nft.name == setting.name, timestamp == setting.timestamp);
+      return (nft.symbol == setting.symbol && nft.name == setting.name && timestamp == setting.timestamp);
     });
     if (!find) {
       console.log("here 1");
@@ -970,10 +975,10 @@ var checkNft = async function () {
     });
   });
   if (!variantIds.length) {
-    $(".koopon-button").html("Not Found");	
+    $(".koopon-button").html("You don't own any NFTs or already ordered");
     setTimeout(function() {	
-      $(button).prop("disabled", false);	
-      $(button).text("Add Koopon");	
+      $(".koopon-button").prop("disabled", false);	
+      $(".koopon-button").html(window.DealMintr.buttonLogo);	
     }, 5000);
     return;
   }
@@ -998,10 +1003,10 @@ var checkNft = async function () {
     console.log("items", items);
     if (!items.length) {
       console.log("here 3");
-      showError();
+      showError("Already added");
       return;
     }
-    $.post("/cart/add.js", {items}, function(data) {
+    $.post(window.Shopify.routes.root + "cart/add.js", {items}, function(data) {
       location.reload();
     });
   });
@@ -1013,8 +1018,33 @@ var initApp = async function (settings, config) {
   }
   window.DealMintr.appSettings = settings;
   window.DealMintr.appConfig = config;
+  window.DealMintr.buttonLogo = `<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 250 250"><defs><style>.cls-1{fill:url(#linear-gradient);}</style><linearGradient id="linear-gradient" x1="87.26" y1="167.36" x2="287.64" y2="-51.73" gradientTransform="translate(0 251) scale(1 -1)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8600ea"/><stop offset="1" stop-color="#3a00a6"/></linearGradient></defs><path class="cls-1" d="m68.69,224.24c-5.23.05-10.46-.83-15.37-2.71-16.24-6.21-27.65-22.8-27.65-40.18v-111.92c0-23.36,18.33-42.99,41.68-43.7,24.05-.73,43.9,18.38,44.35,42.17.05,2.59,3.11,3.92,5.01,2.16l34.32-31.88c16.78-16.63,43.98-16.59,60.71.13,2.98,2.99,5.48,6.33,7.43,9.94,3.31,6.1,5.09,12.94,5.17,20.04v.45c0,11.49-4.47,22.29-12.61,30.43-.07.07-.15.15-.23.22l-15.18,14.33c-5.8,5.48-6.12,14.69-.71,20.55l6.6,7.14,9.08,9.08c7.95,7.95,12.79,18.61,13.03,29.86.27,12.72-4.84,24.52-14.24,32.99-16.99,15.32-43.15,14.47-59.55-1.93l-14.58-14.58c-6.03-6.03-15.85-6.03-21.89,0-5.65,5.65-11.06,11.76-17.12,16.97-7.78,6.7-18.02,10.35-28.26,10.45h0Zm-.27-20.32c13.02.08,22.42-12.72,31.22-21.53,13.99-13.99,36.74-13.99,50.72,0l14.58,14.58c8.73,8.73,22.55,9.26,31.49,1.21,4.82-4.35,7.51-10.35,7.51-16.84s-2.65-12.02-7-16.37l-9.31-9.31c-.1-.1-.19-.19-.29-.29l-6.73-7.3c-12.95-14.03-12.19-36.1,1.69-49.21l15.09-14.25c4.21-4.26,6.53-9.91,6.53-15.9v-.3c-.03-2.54-.48-5.01-1.31-7.33-1.11-3.11-2.91-5.97-5.32-8.38-8.82-8.81-23.18-8.82-32,0-.09.09-.18.17-.27.26l-41.64,38.67c-5.57,5.17-13.66,6.55-20.62,3.51-7.07-3.08-11.46-9.79-11.46-17.5v-8.42c0-12.33-9.65-22.78-21.98-23.13-12.78-.36-23.28,9.93-23.28,22.62v90.67c0,15.58-3.22,36.82,15.34,43.27,2.46.86,4.79,1.25,7.02,1.26h.02Z"/></svg>`;
   if ($('.koopon-button').length == 0) {
-    let button = "<button class='button btn koopon-button'>Add Koopon</button>";
+    let defaultButtonStyle = `
+      <style>
+        .koopon-button {
+          padding: 0;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-size: 16px;
+          line-height: 1.5;
+          color: #000;
+        }
+        .koopon-button:disabled,.koopon-button[disabled] {
+          cursor: not-allowed;
+          pointer-events: none;
+        }
+        .koopon-button svg {
+          weight: 45px;
+          height: 45px;
+        }
+      </style>
+    `;
+    $("body").append(defaultButtonStyle);
+    let button = `
+      <button class='koopon-button'>${window.DealMintr.buttonLogo}</button>
+    `;
     let $form = $("form[action='/cart']");
     if ($form.find("table tbody tr").length) {
       $form.after(button);
@@ -1028,12 +1058,12 @@ var initApp = async function (settings, config) {
     e.preventDefault();
     var button = $(this);
     $(this).prop("disabled", true);
-    $(this).html("Checking");
+    $(this).html("Checking...");
     if (typeof window.ethereum == 'undefined') {	
       $(this).html("Install Metamask");	
       setTimeout(function() {	
         $(button).prop("disabled", false);	
-        $(button).text("Add Koopon");	
+        $(button).html(window.DealMintr.buttonLogo);	
       }, 5000);	
       return;	
     }
