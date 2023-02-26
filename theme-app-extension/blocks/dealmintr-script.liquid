@@ -5,7 +5,6 @@
 <script defer src="{{ 'dealmintr.js' | asset_url }}"></script>
 <script>
   window.DealMintr = {
-    product: {{ product | json }},
     appSettings: {},
     appConfig: {}
   }
@@ -16,6 +15,6 @@
     "name": "DealMintr",
     "target": "body",
     "templates": ["cart"],
-    "settings": [],
+    "settings": []
   }
 {% endschema %}

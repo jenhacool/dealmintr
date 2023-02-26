@@ -51,6 +51,7 @@ const app = next({
 });
 const handle = app.getRequestHandler();
 const morgan = require("koa-morgan");
+const crypto = require('crypto');
 
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
@@ -179,15 +180,52 @@ app.prepare().then(async () => {
     }
   });
 
+  const verifyWebhook = (ctx) => {
+    try {
+      let shop = ctx.request.headers['x-shopify-shop-domain'];
+      let hmac = ctx.request.headers['x-shopify-hmac-sha256'];
+      let hash = crypto.createHmac('sha256', process.env.SHOPIFY_API_SECRET)
+        .update(ctx.request.rawBody, 'utf8', 'hex')
+        .digest('base64');
+
+      if (hash === hmac) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.log(error);
+      return false
+    }
+  }
+
   router.post("/webhooks/customers/redact", async (ctx) => {
+    let verify = verifyWebhook(ctx);
+    if (!verify) {
+      ctx.status = 401;
+      return;
+    }
+
     ctx.status = 200;
   });
 
   router.post("/webhooks/shop/redact", async (ctx) => {
+    let verify = verifyWebhook(ctx);
+    if (!verify) {
+      ctx.status = 401;
+      return;
+    }
+
     ctx.status = 200;
   });
 
   router.post("/webhooks/customers/data_request", async (ctx) => {
+    let verify = verifyWebhook(ctx);
+    if (!verify) {
+      ctx.status = 401;
+      return;
+    }
+
     ctx.status = 200;
   });
 
@@ -356,6 +394,18 @@ app.prepare().then(async () => {
 
   router.post("/api/on_order_paid", bodyParser(), async (ctx) => {
     try {
+      // let shop = ctx.request.headers['x-shopify-shop-domain'];
+      // let hmac = ctx.request.headers['x-shopify-hmac-sha256'];
+      // let hash = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_KEY).update(ctx.request.rawBody, 'utf8', 'hex').digest('base64');
+
+      // if (hmac != hash) {
+      //   ctx.status = 200;
+      //   ctx.body = {
+      //     success: false,
+      //   };
+      //   return
+      // }
+      
       let { id, line_items } = ctx.request.body;
       if (!line_items) {
         ctx.status = 200;
